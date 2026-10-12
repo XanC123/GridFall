@@ -10,6 +10,8 @@ namespace {
 float gNextDx = 0.0f;
 float gNextDy = 0.0f;
 int gGetDeltaCalls = 0;
+int gConsumeRelativeCalls = 0;
+int gResetRelativeCalls = 0;
 int gDisableCalls = 0;
 int gEnableCalls = 0;
 int gShowCalls = 0;
@@ -17,10 +19,19 @@ int gShowCalls = 0;
 
 extern "C" Vector2 GetMouseDelta(void) {
     ++gGetDeltaCalls;
+    return {};
+}
+extern "C" Vector2 GridfallConsumeRelativeMouseDelta(void) {
+    ++gConsumeRelativeCalls;
     const Vector2 result{gNextDx, gNextDy};
     gNextDx = 0.0f;
     gNextDy = 0.0f;
     return result;
+}
+extern "C" void GridfallResetRelativeMouseDelta(void) {
+    ++gResetRelativeCalls;
+    gNextDx = 0.0f;
+    gNextDy = 0.0f;
 }
 extern "C" void DisableCursor(void) { ++gDisableCalls; }
 extern "C" void EnableCursor(void) { ++gEnableCalls; }
@@ -40,20 +51,18 @@ int main() {
     CHECK(input.initialize());
     CHECK(input.backendName() != nullptr);
 
-    // Relative motion must be ignored while the cursor is not captured.
+    // A delta is not consumed while the cursor is uncaptured.
     gNextDx = 17.0f;
     gNextDy = -9.0f;
-    const int callsBeforeCapture = gGetDeltaCalls;
     const MouseDelta ignored = input.consumeDelta();
     CHECK(ignored.x == 0.0f && ignored.y == 0.0f);
-    CHECK(gGetDeltaCalls == callsBeforeCapture);
+    CHECK(gConsumeRelativeCalls == 0);
 
     input.setCaptured(true);
     CHECK(gDisableCalls == 1);
-    CHECK(input.backendName() != nullptr);
+    CHECK(gResetRelativeCalls == 1);
 
-    // Drop the one stale absolute-mode sample produced across the capture
-    // transition, then preserve the first subsequent relative sample.
+    // Discard a stale capture-transition sample without losing the next sample.
     gNextDx = 2400.0f;
     gNextDy = -1800.0f;
     const MouseDelta staleSample = input.consumeDelta();
@@ -99,21 +108,25 @@ int main() {
         }
     }
 
-    // A stationary mouse produces zero on the next frame; a delta is consumed once.
+    // The independent accumulator returns stationary zero and is consumed once.
     const MouseDelta stationary = input.consumeDelta();
     CHECK(stationary.x == 0.0f && stationary.y == 0.0f);
-    CHECK(gGetDeltaCalls == callsBeforeCapture + 11);
+    CHECK(gConsumeRelativeCalls == 12);
+    CHECK(gGetDeltaCalls == 0);
 
     input.setCaptured(false);
     CHECK(gEnableCalls == 1);
     CHECK(gShowCalls == 1);
+    CHECK(gResetRelativeCalls == 2);
     gNextDx = -999.0f;
     gNextDy = 777.0f;
     const MouseDelta ignoredAfterRelease = input.consumeDelta();
     CHECK(ignoredAfterRelease.x == 0.0f && ignoredAfterRelease.y == 0.0f);
+    CHECK(gConsumeRelativeCalls == 12);
 
     input.setCaptured(true);
     CHECK(gDisableCalls == 2);
+    CHECK(gResetRelativeCalls == 3);
     gNextDx = -1600.0f;
     gNextDy = 1200.0f;
     const MouseDelta staleRecaptureSample = input.consumeDelta();
@@ -126,6 +139,8 @@ int main() {
     input.shutdown();
     CHECK(gEnableCalls == 2);
     CHECK(gShowCalls == 2);
-    std::puts("SDL relative-input adapter passed: signed x/y, configurable axis directions, all 8 directions, stationary zero, one-time consumption, and cursor capture lifecycle.");
+    CHECK(gResetRelativeCalls == 4);
+    CHECK(gGetDeltaCalls == 0);
+    std::puts("SDL relative-input adapter passed: dedicated signed xrel/yrel path, all 8 directions, axis separation, warm-up, one-time consumption, and capture lifecycle.");
     return EXIT_SUCCESS;
 }
