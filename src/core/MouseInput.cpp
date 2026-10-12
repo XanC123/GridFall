@@ -2,9 +2,6 @@
 
 #include <raylib.h>
 
-extern "C" Vector2 GridfallConsumeRelativeMouseDelta(void);
-extern "C" void GridfallResetRelativeMouseDelta(void);
-
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -30,17 +27,21 @@ bool MouseInput::initialize() noexcept {
 void MouseInput::setCaptured(bool captured) noexcept {
     if (captured == captured_) return;
 
-    // Drain any motion collected under the previous cursor mode before changing
-    // capture state. One subsequent sample is consumed as a capture warm-up;
-    // the first real relative sample after that is kept.
-    GridfallResetRelativeMouseDelta();
     if (captured) {
-        DisableCursor();
+        // WSLg/XWayland can report desktop-pointer coordinates as SDL relative
+        // xrel/yrel values. Hide the ordinary absolute pointer without enabling
+        // SDL relative mode, then center it over the client area.
+        HideCursor();
+        captureCenterX_ = GetScreenWidth() / 2;
+        captureCenterY_ = GetScreenHeight() / 2;
+        captureCenterInitialized_ = captureCenterX_ >= 0 && captureCenterY_ >= 0;
+        SetMousePosition(captureCenterX_, captureCenterY_);
         captureWarmupSamplesRemaining_ = kCaptureWarmupSamples;
     } else {
         EnableCursor();
         ShowCursor();
         captureWarmupSamplesRemaining_ = 0;
+        captureCenterInitialized_ = false;
     }
     captured_ = captured;
 }
@@ -48,14 +49,38 @@ void MouseInput::setCaptured(bool captured) noexcept {
 MouseDelta MouseInput::consumeDelta() noexcept {
     if (!initialized_ || !captured_) return {};
 
-    // Read signed SDL event displacements directly instead of rebuilding them
-    // from shared cursor positions or applying Raylib cursor scaling.
-    const Vector2 delta = GridfallConsumeRelativeMouseDelta();
+    const int screenWidth = GetScreenWidth();
+    const int screenHeight = GetScreenHeight();
+    if (screenWidth <= 0 || screenHeight <= 0) return {};
+
+    const int centerX = screenWidth / 2;
+    const int centerY = screenHeight / 2;
+    const Vector2 position = GetMousePosition();
+
+    // Window resizing moves the neutral center. Reset without interpreting the
+    // changed window geometry as physical mouse movement.
+    if (!captureCenterInitialized_ || centerX != captureCenterX_ || centerY != captureCenterY_) {
+        captureCenterX_ = centerX;
+        captureCenterY_ = centerY;
+        captureCenterInitialized_ = true;
+        SetMousePosition(centerX, centerY);
+        if (captureWarmupSamplesRemaining_ > 0) --captureWarmupSamplesRemaining_;
+        return {};
+    }
+
+    // In unlocked/hidden mode Raylib tracks the ordinary absolute pointer. Since
+    // it is recentered after movement, the offset from center is this sample's
+    // displacement. Stationary frames do not trigger redundant warps.
+    const MouseDelta delta{
+        position.x - static_cast<float>(centerX),
+        position.y - static_cast<float>(centerY)
+    };
+    if (delta.x != 0.0f || delta.y != 0.0f) SetMousePosition(centerX, centerY);
+
     if (captureWarmupSamplesRemaining_ > 0) {
         --captureWarmupSamplesRemaining_;
         return {};
     }
-
     return {
         std::isfinite(delta.x) ? delta.x : 0.0f,
         std::isfinite(delta.y) ? delta.y : 0.0f
@@ -170,7 +195,7 @@ void MouseInput::reportGameplaySample(MouseDelta delta, const MouseLookControlle
 }
 
 const char* MouseInput::backendName() const noexcept {
-    return "Gridfall SDL signed xrel/yrel accumulator";
+    return "Gridfall hidden absolute pointer with center recentering (WSLg)";
 }
 
 void MouseInput::shutdown() noexcept {
