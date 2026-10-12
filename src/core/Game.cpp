@@ -66,9 +66,9 @@ int Game::run() {
         const bool windowFocusedNow = IsWindowFocused();
         const bool shouldCaptureCursor = state_ == GameState::Playing && !skillTreeOpen_ && windowFocusedNow;
         if (shouldCaptureCursor != cursorCaptured_) {
-            // MouseInput owns cursor capture. The SDL-built Raylib backend uses
-            // SDL relative mouse mode and signed xrel/yrel event deltas. No X11
-            // subscription, GLFW virtual cursor polling, or per-frame cursor warping.
+            // MouseInput owns a hidden absolute-pointer fallback for WSLg. It avoids
+            // SDL's unreliable relative xrel/yrel stream and recenters only after
+            // actual movement; frame pacing and the visible UI remain unchanged.
             mouseInput_.setCaptured(shouldCaptureCursor);
             cursorCaptured_ = shouldCaptureCursor;
         }
@@ -170,8 +170,7 @@ void Game::loadLevel(int index) {
     player_.position = level_.playerSpawn();
     player_.previousPosition = player_.position;
     player_.velocity = {};
-    player_.facing = {1.0f, 0.0f};
-    mouseLook_.reset();
+    player_.facing = mouseLook_.facing();
     player_.reloading = false;
     player_.reloadTimer = 0.0f;
     player_.poisoned = false;
