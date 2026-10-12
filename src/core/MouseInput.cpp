@@ -9,6 +9,7 @@
 namespace gridfall {
 namespace {
 
+constexpr unsigned int kCaptureWarmupSamples = 2;
 constexpr double kDiagnosticsDurationSeconds = 10.0;
 constexpr double kDiagnosticsReportIntervalSeconds = 0.25;
 constexpr float kRadiansToDegrees = 57.29577951308232f;
@@ -26,14 +27,18 @@ bool MouseInput::initialize() noexcept {
 void MouseInput::setCaptured(bool captured) noexcept {
     if (captured == captured_) return;
 
-    // In a Gridfall SDL-backed Raylib build, DisableCursor() enables SDL relative
-    // mouse mode. The CMake patch ensures each frame starts at zero and all
-    // SDL_MOUSEMOTION xrel/yrel events are accumulated before GetMouseDelta().
+    // Raylib polls input in EndDrawing(), after Gridfall reads input for the
+    // current frame. The first read after changing cursor mode therefore still
+    // sees the previous mode's sample; the next read can contain cursor-transition
+    // motion from SDL's first relative-mode poll. Drop both samples at the input
+    // boundary so neither can rotate the camera.
     if (captured) {
         DisableCursor();
+        captureWarmupSamplesRemaining_ = kCaptureWarmupSamples;
     } else {
         EnableCursor();
         ShowCursor();
+        captureWarmupSamplesRemaining_ = 0;
     }
     captured_ = captured;
 }
@@ -42,6 +47,11 @@ MouseDelta MouseInput::consumeDelta() noexcept {
     if (!initialized_ || !captured_) return {};
 
     const Vector2 delta = GetMouseDelta();
+    if (captureWarmupSamplesRemaining_ > 0) {
+        --captureWarmupSamplesRemaining_;
+        return {};
+    }
+
     return {
         std::isfinite(delta.x) ? delta.x : 0.0f,
         std::isfinite(delta.y) ? delta.y : 0.0f
