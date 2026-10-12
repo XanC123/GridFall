@@ -6,7 +6,7 @@ The title menu's absolute cursor-position path worked, but the gameplay path use
 
 ## Current fix direction
 
-## Relative-mode fallback for WSLg/XWayland
+### Relative-mode fallback for WSLg/XWayland
 
 The SDL2 relative-mode API can still deliver virtual-pointer-sized values on
 some X11/XWayland or virtualized Linux paths. The CMake-patched Raylib SDL
