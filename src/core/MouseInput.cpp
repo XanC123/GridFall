@@ -28,10 +28,10 @@ void MouseInput::setCaptured(bool captured) noexcept {
     if (captured == captured_) return;
 
     // Raylib polls input in EndDrawing(), after Gridfall reads input for the
-    // current frame. The first read after changing cursor mode therefore still
-    // sees the previous mode's sample; the next read can contain cursor-transition
-    // motion from SDL's first relative-mode poll. Drop both samples at the input
-    // boundary so neither can rotate the camera.
+    // current frame. The first read after changing cursor mode can therefore
+    // still see the previous mode's absolute-position sample. Discard that one
+    // stale sample here, at the input boundary; retain the first following
+    // relative sample so real movement is not lost.
     if (captured) {
         DisableCursor();
         captureWarmupSamplesRemaining_ = kCaptureWarmupSamples;
