@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run the interactive visual center-relative pointer probe. The game has its own automatic 10-second terminal trace.
+# Run the interactive SDL relative-motion probe. The game has its own automatic 10-second terminal trace.
 export GALLIUM_DRIVER=d3d12
 export MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
 unset LIBGL_ALWAYS_SOFTWARE || true
