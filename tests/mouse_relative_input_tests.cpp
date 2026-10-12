@@ -111,7 +111,7 @@ int main() {
     // The independent accumulator returns stationary zero and is consumed once.
     const MouseDelta stationary = input.consumeDelta();
     CHECK(stationary.x == 0.0f && stationary.y == 0.0f);
-    CHECK(gConsumeRelativeCalls == 12);
+    CHECK(gConsumeRelativeCalls == 11);
     CHECK(gGetDeltaCalls == 0);
 
     input.setCaptured(false);
