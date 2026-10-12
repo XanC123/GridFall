@@ -2,6 +2,9 @@
 
 #include <raylib.h>
 
+extern "C" Vector2 GridfallConsumeRelativeMouseDelta(void);
+extern "C" void GridfallResetRelativeMouseDelta(void);
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -27,11 +30,10 @@ bool MouseInput::initialize() noexcept {
 void MouseInput::setCaptured(bool captured) noexcept {
     if (captured == captured_) return;
 
-    // Raylib polls input in EndDrawing(), after Gridfall reads input for the
-    // current frame. The first read after changing cursor mode can therefore
-    // still see the previous mode's absolute-position sample. Discard that one
-    // stale sample here, at the input boundary; retain the first following
-    // relative sample so real movement is not lost.
+    // Drain any motion collected under the previous cursor mode before changing
+    // capture state. One subsequent sample is consumed as a capture warm-up;
+    // the first real relative sample after that is kept.
+    GridfallResetRelativeMouseDelta();
     if (captured) {
         DisableCursor();
         captureWarmupSamplesRemaining_ = kCaptureWarmupSamples;
@@ -46,7 +48,9 @@ void MouseInput::setCaptured(bool captured) noexcept {
 MouseDelta MouseInput::consumeDelta() noexcept {
     if (!initialized_ || !captured_) return {};
 
-    const Vector2 delta = GetMouseDelta();
+    // Read signed SDL event displacements directly instead of rebuilding them
+    // from shared cursor positions or applying Raylib cursor scaling.
+    const Vector2 delta = GridfallConsumeRelativeMouseDelta();
     if (captureWarmupSamplesRemaining_ > 0) {
         --captureWarmupSamplesRemaining_;
         return {};
@@ -166,7 +170,7 @@ void MouseInput::reportGameplaySample(MouseDelta delta, const MouseLookControlle
 }
 
 const char* MouseInput::backendName() const noexcept {
-    return "Gridfall-patched Raylib SDL relative mouse";
+    return "Gridfall SDL signed xrel/yrel accumulator";
 }
 
 void MouseInput::shutdown() noexcept {
