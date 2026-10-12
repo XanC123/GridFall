@@ -8,17 +8,17 @@ The title menu's absolute cursor-position path worked, but the gameplay path use
 
 ### Relative-mode fallback for WSLg/XWayland
 
-The SDL2 relative-mode API can still deliver virtual-pointer-sized values on
-some X11/XWayland or virtualized Linux paths. The CMake-patched Raylib SDL
-backend checks the active video driver when capture begins: it enables SDL2's
-warp-based relative fallback for the `x11` driver, and leaves native relative
-motion alone on Wayland. It prints the active driver and fallback selection to
-the terminal so the runtime path is visible.
+The previous build forced SDL's warp-based relative fallback on the `x11`
+driver. The live trace showed deltas approaching half the window width/height,
+consistent with cursor-position-sized jumps, so that fallback is no longer the
+default. The patched Raylib SDL backend now requests native/raw relative input
+by default on X11 and leaves other drivers on their native path. It reports the
+selected mode at runtime.
 
-Set `GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0` to force SDL's raw-relative path, or
-`GRIDFALL_SDL_RELATIVE_MOUSE_WARP=1` to force the warp fallback when comparing
-behavior. The default is driver-aware. This is a platform backend choice, not
-a sensitivity multiplier or arbitrary per-frame clamp.
+Set `GRIDFALL_SDL_RELATIVE_MOUSE_WARP=1` to opt into the legacy warp fallback
+for comparison, or `GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0` to explicitly request
+native/raw input. The default is native/raw. This is a platform backend choice,
+not a sensitivity multiplier or arbitrary per-frame clamp.
 
 The input adapter discards one stale sample at the capture/re-capture boundary,
 then retains the first subsequent relative sample.
