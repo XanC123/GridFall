@@ -8,18 +8,21 @@ The title menu's absolute cursor-position path worked, but the gameplay path use
 
 ## Relative-mode fallback for WSLg/XWayland
 
-The SDL2 relative-mode API can still deliver virtual-pointer-sized values on some
-Wayland/XWayland or virtualized Linux paths. The WSL launcher therefore defaults
-`SDL_MOUSE_RELATIVE_MODE_WARP=1`, asking SDL2 to emulate relative motion by
-warping the pointer rather than relying on the raw relative-event path. The
-setting is also applied by the standalone mouse probe, and can be overridden for
-comparison by launching with `SDL_MOUSE_RELATIVE_MODE_WARP=0`.
+The SDL2 relative-mode API can still deliver virtual-pointer-sized values on
+some X11/XWayland or virtualized Linux paths. The CMake-patched Raylib SDL
+backend checks the active video driver when capture begins: it enables SDL2's
+warp-based relative fallback for the `x11` driver, and leaves native relative
+motion alone on Wayland. It prints the active driver and fallback selection to
+the terminal so the runtime path is visible.
 
-This is a platform workaround, not a sensitivity multiplier or an arbitrary
-per-frame clamp. Gridfall still consumes signed relative deltas and applies the
-configured radians-per-pixel setting once. The first stale sample during
-capture/re-capture is discarded at the input adapter boundary; the first later
-relative sample is retained.
+Set `GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0` to force SDL's raw-relative path, or
+`GRIDFALL_SDL_RELATIVE_MOUSE_WARP=1` to force the warp fallback when comparing
+behavior. The default is driver-aware. This is a platform backend choice, not
+a sensitivity multiplier or arbitrary per-frame clamp.
+
+The input adapter discards one stale sample at the capture/re-capture boundary,
+then retains the first subsequent relative sample.
+
 
 
 The current project fetches Raylib 6.0 and compiles it with `PLATFORM=SDL`, using SDL2 relative mouse mode. Raylib's SDL backend calls `SDL_SetRelativeMouseMode(SDL_TRUE)` when `DisableCursor()` is called, and in locked mode it assigns mouse motion from the SDL event's signed `xrel/yrel`, rather than deriving it from the virtual cursor's position. This follows the workaround noted by the Raylib maintainer for the reported Linux `DisableCursor()` delta issue.
