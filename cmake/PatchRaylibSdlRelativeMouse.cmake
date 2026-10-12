@@ -11,6 +11,40 @@ set(_gridfall_raylib_sdl_path "${raylib_SOURCE_DIR}/src/platforms/rcore_desktop_
 file(READ "${_gridfall_raylib_sdl_path}" _gridfall_raylib_sdl_source)
 set(_gridfall_raylib_source_changed FALSE)
 
+# Expose a dedicated signed relative-motion accumulator to Gridfall. This avoids
+# recovering relative deltas by subtracting Raylib shared current/previous
+# cursor coordinates (which also serve absolute cursor/UI input).
+string(FIND "${_gridfall_raylib_sdl_source}" "Vector2 GridfallConsumeRelativeMouseDelta(void)" _gridfall_consume_api_index)
+string(FIND "${_gridfall_raylib_sdl_source}" "void GridfallResetRelativeMouseDelta(void)" _gridfall_reset_api_index)
+if (_gridfall_consume_api_index LESS 0 AND _gridfall_reset_api_index LESS 0)
+    set(_gridfall_api_anchor [=[#ifndef MAX_CLIPBOARD_BUFFER_LENGTH]=])
+    set(_gridfall_api_after [=[
+/* GRIDFALL PATCH: isolated signed xrel/yrel stream for first-person look. */
+static Vector2 gridfallRelativeMouseDelta = { 0.0f, 0.0f };
+
+Vector2 GridfallConsumeRelativeMouseDelta(void)
+{
+    Vector2 delta = gridfallRelativeMouseDelta;
+    gridfallRelativeMouseDelta = (Vector2){ 0.0f, 0.0f };
+    return delta;
+}
+
+void GridfallResetRelativeMouseDelta(void)
+{
+    gridfallRelativeMouseDelta = (Vector2){ 0.0f, 0.0f };
+}
+
+#ifndef MAX_CLIPBOARD_BUFFER_LENGTH]=])
+    string(FIND "${_gridfall_raylib_sdl_source}" "${_gridfall_api_anchor}" _gridfall_api_anchor_index)
+    if (_gridfall_api_anchor_index LESS 0)
+        message(FATAL_ERROR "Could not locate a stable Raylib SDL API insertion point.")
+    endif()
+    string(REPLACE "${_gridfall_api_anchor}" "${_gridfall_api_after}" _gridfall_raylib_sdl_source "${_gridfall_raylib_sdl_source}")
+    set(_gridfall_raylib_source_changed TRUE)
+elseif (_gridfall_consume_api_index LESS 0 OR _gridfall_reset_api_index LESS 0)
+    message(FATAL_ERROR "Incomplete Gridfall relative-mouse API already exists in Raylib source.")
+endif()
+
 set(_gridfall_reset_before [=[    // Register previous mouse position
     if (CORE.Input.Mouse.cursorLocked) CORE.Input.Mouse.currentPosition = (Vector2){ 0.0f, 0.0f };
     else CORE.Input.Mouse.previousPosition = CORE.Input.Mouse.currentPosition;]=])
@@ -36,9 +70,11 @@ endif()
 set(_gridfall_motion_before [=[                    CORE.Input.Mouse.currentPosition.x = (float)event.motion.xrel;
                     CORE.Input.Mouse.currentPosition.y = (float)event.motion.yrel;
                     CORE.Input.Mouse.previousPosition = (Vector2){ 0.0f, 0.0f };]=])
-set(_gridfall_motion_after [=[                    // GRIDFALL PATCH: accumulate every relative SDL motion event for this frame.
+set(_gridfall_motion_after [=[                    // GRIDFALL PATCH: preserve Raylib bookkeeping and record signed SDL axes separately.
                     CORE.Input.Mouse.currentPosition.x += (float)event.motion.xrel;
-                    CORE.Input.Mouse.currentPosition.y += (float)event.motion.yrel;]=])
+                    CORE.Input.Mouse.currentPosition.y += (float)event.motion.yrel;
+                    gridfallRelativeMouseDelta.x += (float)event.motion.xrel;
+                    gridfallRelativeMouseDelta.y += (float)event.motion.yrel;]=])
 
 string(FIND "${_gridfall_raylib_sdl_source}" "${_gridfall_motion_before}" _gridfall_motion_old_index)
 string(FIND "${_gridfall_raylib_sdl_source}" "${_gridfall_motion_after}" _gridfall_motion_new_index)
