@@ -71,7 +71,6 @@ int Game::run() {
             // subscription, GLFW virtual cursor polling, or per-frame cursor warping.
             mouseInput_.setCaptured(shouldCaptureCursor);
             cursorCaptured_ = shouldCaptureCursor;
-            ignoreNextMouseDelta_ = true;
         }
 
         if (IsKeyPressed(KEY_F10)) renderer_.togglePerformanceOverlay();
@@ -244,14 +243,8 @@ void Game::updateFrame(float frameDt) {
     inputPollTime_ = std::chrono::steady_clock::now();
     InputFrame input = pollInput();
 
-    // Apply the SDL relative mouse delta exactly once per rendered frame. Mouse look
-    // intentionally avoids temporal smoothing: the delta is already displacement and
-    // added smoothing would make aim lag behind the physical mouse.
-    if (ignoreNextMouseDelta_) {
-        input.lookDeltaX = 0.0f;
-        input.lookDeltaY = 0.0f;
-        ignoreNextMouseDelta_ = false;
-    }
+    // MouseInput suppresses stale/transition samples during cursor capture changes;
+    // only valid relative deltas reach the camera controller below.
     if (state_ == GameState::Playing && !skillTreeOpen_ && IsWindowFocused()) {
         mouseLook_.update(input.lookDeltaX, input.lookDeltaY);
         player_.facing = mouseLook_.facing();
