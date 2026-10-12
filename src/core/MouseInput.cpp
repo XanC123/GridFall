@@ -2,6 +2,10 @@
 
 #include <raylib.h>
 
+extern "C" Vector2 GridfallConsumeRelativeMouseDelta(void);
+extern "C" void GridfallResetRelativeMouseDelta(void);
+extern "C" int GridfallRelativeMouseModeActive(void);
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -9,7 +13,6 @@
 namespace gridfall {
 namespace {
 
-constexpr unsigned int kCaptureWarmupSamples = 1;
 constexpr double kDiagnosticsDurationSeconds = 10.0;
 constexpr double kDiagnosticsReportIntervalSeconds = 0.25;
 constexpr float kRadiansToDegrees = 57.29577951308232f;
@@ -24,59 +27,33 @@ bool MouseInput::initialize() noexcept {
     return true;
 }
 
-void MouseInput::setCaptured(bool captured) noexcept {
-    if (captured == captured_) return;
+bool MouseInput::setCaptured(bool captured) noexcept {
+    if (captured == captured_) return captured_;
 
+    GridfallResetRelativeMouseDelta();
     if (captured) {
-        // WSLg/XWayland can report desktop-pointer coordinates as SDL relative
-        // xrel/yrel values. Hide the ordinary absolute pointer without enabling
-        // SDL relative mode, then center it over the client area.
-        HideCursor();
-        captureCenterX_ = GetScreenWidth() / 2;
-        captureCenterY_ = GetScreenHeight() / 2;
-        captureCenterInitialized_ = captureCenterX_ >= 0 && captureCenterY_ >= 0;
-        SetMousePosition(captureCenterX_, captureCenterY_);
-        captureWarmupSamplesRemaining_ = kCaptureWarmupSamples;
+        DisableCursor();
+        if (GridfallRelativeMouseModeActive() == 0) {
+            std::fprintf(stderr,
+                         "[MOUSE_ERROR] SDL relative mode did not activate; refusing to feed absolute coordinates to camera look.\n");
+            std::fflush(stderr);
+            EnableCursor();
+            captureWarmupSamplesRemaining_ = 0;
+            captured_ = false;
+            return false;
+        }
+        captureWarmupSamplesRemaining_ = 1;
     } else {
         EnableCursor();
-        ShowCursor();
         captureWarmupSamplesRemaining_ = 0;
-        captureCenterInitialized_ = false;
     }
     captured_ = captured;
+    return captured_;
 }
 
 MouseDelta MouseInput::consumeDelta() noexcept {
     if (!initialized_ || !captured_) return {};
-
-    const int screenWidth = GetScreenWidth();
-    const int screenHeight = GetScreenHeight();
-    if (screenWidth <= 0 || screenHeight <= 0) return {};
-
-    const int centerX = screenWidth / 2;
-    const int centerY = screenHeight / 2;
-    const Vector2 position = GetMousePosition();
-
-    // Window resizing moves the neutral center. Reset without interpreting the
-    // changed window geometry as physical mouse movement.
-    if (!captureCenterInitialized_ || centerX != captureCenterX_ || centerY != captureCenterY_) {
-        captureCenterX_ = centerX;
-        captureCenterY_ = centerY;
-        captureCenterInitialized_ = true;
-        SetMousePosition(centerX, centerY);
-        if (captureWarmupSamplesRemaining_ > 0) --captureWarmupSamplesRemaining_;
-        return {};
-    }
-
-    // In unlocked/hidden mode Raylib tracks the ordinary absolute pointer. Since
-    // it is recentered after movement, the offset from center is this sample's
-    // displacement. Stationary frames do not trigger redundant warps.
-    const MouseDelta delta{
-        position.x - static_cast<float>(centerX),
-        position.y - static_cast<float>(centerY)
-    };
-    if (delta.x != 0.0f || delta.y != 0.0f) SetMousePosition(centerX, centerY);
-
+    const Vector2 delta = GridfallConsumeRelativeMouseDelta();
     if (captureWarmupSamplesRemaining_ > 0) {
         --captureWarmupSamplesRemaining_;
         return {};
@@ -195,11 +172,11 @@ void MouseInput::reportGameplaySample(MouseDelta delta, const MouseLookControlle
 }
 
 const char* MouseInput::backendName() const noexcept {
-    return "Gridfall hidden absolute pointer with center recentering (WSLg)";
+    return "Gridfall SDL relative-motion event accumulator";
 }
 
 void MouseInput::shutdown() noexcept {
-    setCaptured(false);
+    (void)setCaptured(false);
     initialized_ = false;
 }
 

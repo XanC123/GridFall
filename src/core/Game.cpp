@@ -32,6 +32,7 @@ int Game::run() {
     // a throughput-first default; opt in with GRIDFALL_MSAA=1 if edges need smoothing.
     if (environmentFlagEnabled("GRIDFALL_MSAA")) windowFlags |= FLAG_MSAA_4X_HINT;
     if (useVsync) windowFlags |= FLAG_VSYNC_HINT;
+    MouseInput::configurePlatformBeforeWindow();
     SetConfigFlags(windowFlags);
     InitWindow(kWindowWidth, kWindowHeight, "GRIDFALL // BELOW THE LINE");
     if (!IsWindowReady()) return 1;
@@ -65,12 +66,11 @@ int Game::run() {
         // use a visible pointer. Avoid repeatedly toggling the OS cursor every frame.
         const bool windowFocusedNow = IsWindowFocused();
         const bool shouldCaptureCursor = state_ == GameState::Playing && !skillTreeOpen_ && windowFocusedNow;
-        if (shouldCaptureCursor != cursorCaptured_) {
-            // MouseInput owns a hidden absolute-pointer fallback for WSLg. It avoids
-            // SDL's unreliable relative xrel/yrel stream and recenters only after
-            // actual movement; frame pacing and the visible UI remain unchanged.
-            mouseInput_.setCaptured(shouldCaptureCursor);
-            cursorCaptured_ = shouldCaptureCursor;
+        if (shouldCaptureCursor != cursorCaptureRequested_) {
+            // Track the request separately from actual capture. If SDL refuses
+            // relative mode, do not retry every frame or consume absolute positions.
+            cursorCaptureRequested_ = shouldCaptureCursor;
+            cursorCaptured_ = mouseInput_.setCaptured(shouldCaptureCursor);
         }
 
         if (IsKeyPressed(KEY_F10)) renderer_.togglePerformanceOverlay();
@@ -92,7 +92,7 @@ int Game::run() {
 
     // Always write a final rolling window on clean exit, even if F11 was not pressed.
     renderer_.exportPerformanceCsv("build/performance/gridfall-frame-samples.csv");
-    mouseInput_.setCaptured(false);
+    (void)mouseInput_.setCaptured(false);
     mouseInput_.shutdown();
     renderer_.shutdown();
     CloseWindow();

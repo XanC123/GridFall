@@ -5,31 +5,22 @@
 #include <cstdint>
 
 namespace gridfall {
-
-// WSLg-safe mouse-look adapter. Gameplay hides but does not lock the absolute
-// pointer, measures its offset from client-area center, and recenters after motion.
 class MouseInput {
 public:
     MouseInput() = default;
     ~MouseInput();
-
     MouseInput(const MouseInput&) = delete;
     MouseInput& operator=(const MouseInput&) = delete;
-
+    static void configurePlatformBeforeWindow() noexcept;
     [[nodiscard]] bool initialize() noexcept;
-    void setCaptured(bool captured) noexcept;
+    [[nodiscard]] bool setCaptured(bool captured) noexcept;
     [[nodiscard]] MouseDelta consumeDelta() noexcept;
-    void reportGameplaySample(MouseDelta delta, const MouseLookController& camera,
-                              float frameSeconds) noexcept;
+    void reportGameplaySample(MouseDelta delta, const MouseLookController& camera, float frameSeconds) noexcept;
     [[nodiscard]] const char* backendName() const noexcept;
     void shutdown() noexcept;
-
 private:
     bool initialized_{};
     bool captured_{};
-    bool captureCenterInitialized_{};
-    int captureCenterX_{};
-    int captureCenterY_{};
     unsigned int captureWarmupSamplesRemaining_{};
     bool diagnosticsStarted_{};
     bool diagnosticsFinished_{};
@@ -56,5 +47,4 @@ private:
     std::uint64_t diagnosticWindowFrames_{};
     std::uint64_t diagnosticWindowMovingFrames_{};
 };
-
 } // namespace gridfall

@@ -62,6 +62,7 @@ private:
     MouseLookController mouseLook_{};
     MouseInput mouseInput_{};
     bool cursorCaptured_{};
+    bool cursorCaptureRequested_{};
     std::chrono::steady_clock::time_point inputPollTime_{};
     float lastUpdateMs_{};
     float lastRenderCpuMs_{};
