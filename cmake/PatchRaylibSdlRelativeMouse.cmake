@@ -50,10 +50,10 @@ elseif (_gridfall_motion_new_index LESS 0)
 endif()
 
 
-# The WSLg/XWayland SDL2 raw-relative path can produce virtual-screen-sized
-# deltas. Prefer SDL's warp-based relative fallback on the X11 driver only.
-# Native Wayland keeps its own relative-motion implementation. A named
-# GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0/1 environment override allows comparison.
+# The forced warp fallback produced window-sized deltas in the WSLg/XWayland
+# trace. Keep SDL's native relative input enabled by default; retain the warp
+# mode only as an explicit diagnostic override for comparison.
+# GRIDFALL_SDL_RELATIVE_MOUSE_WARP=1 opts into warp fallback; =0 opts into raw.
 set(_gridfall_disable_cursor_before [=[void DisableCursor(void)
 {
     SDL_SetRelativeMouseMode(SDL_TRUE);]=])
@@ -62,22 +62,25 @@ set(_gridfall_disable_cursor_after [=[void DisableCursor(void)
     const char *videoDriver = SDL_GetCurrentVideoDriver();
     const char *warpFallbackOverride = SDL_getenv("GRIDFALL_SDL_RELATIVE_MOUSE_WARP");
     const bool useWarpFallback = (warpFallbackOverride != NULL)
-        ? (SDL_strcmp(warpFallbackOverride, "1") == 0)
-        : ((videoDriver != NULL) && (SDL_strcmp(videoDriver, "x11") == 0));
+        && (SDL_strcmp(warpFallbackOverride, "1") == 0);
+    const bool isX11Driver = (videoDriver != NULL)
+        && (SDL_strcmp(videoDriver, "x11") == 0);
 
     if (warpFallbackOverride != NULL)
     {
         SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP,
                                 useWarpFallback ? "1" : "0", SDL_HINT_OVERRIDE);
     }
-    else if (useWarpFallback)
+    else if (isX11Driver)
     {
-        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
+        // Override inherited SDL environment settings on X11. Raw relative input
+        // is the known-good starting point; warp mode remains opt-in for diagnosis.
+        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0", SDL_HINT_OVERRIDE);
     }
 
-    TRACELOG(LOG_INFO, "GRIDFALL mouse input: SDL driver=%s warp-fallback=%s",
+    TRACELOG(LOG_INFO, "GRIDFALL mouse input: SDL driver=%s relative-input=%s",
              (videoDriver != NULL) ? videoDriver : "unknown",
-             useWarpFallback ? "enabled" : "disabled");
+             useWarpFallback ? "warp-fallback" : "native-raw");
     SDL_SetRelativeMouseMode(SDL_TRUE);]=])
 
 string(FIND "${_gridfall_raylib_sdl_source}" "${_gridfall_disable_cursor_before}" _gridfall_disable_cursor_old_index)
@@ -91,7 +94,41 @@ endif()
 
 if (_gridfall_raylib_source_changed)
     file(WRITE "${_gridfall_raylib_sdl_path}" "${_gridfall_raylib_sdl_source}")
-    message(STATUS "Gridfall patched Raylib SDL mouse input: frame reset, signed accumulation, driver-aware relative fallback")
+endif()
+
+# Raylib's bundled jar_mod reader ignores fread's result, triggering
+# -Wunused-result on toolchains that annotate stdio reads. Check the read and
+# release partial state if the file changed or could not be read completely.
+set(_gridfall_jar_mod_path "${raylib_SOURCE_DIR}/src/external/jar_mod.h")
+if (NOT EXISTS "${_gridfall_jar_mod_path}")
+    message(FATAL_ERROR "Gridfall expected Raylib's bundled src/external/jar_mod.h")
+endif()
+file(READ "${_gridfall_jar_mod_path}" _gridfall_jar_mod_source)
+set(_gridfall_fread_before [=[            fread(modctx->modfile, fsize, 1, f);]=])
+set(_gridfall_fread_after [=[            size_t bytesRead = fread(modctx->modfile, fsize, 1, f);
+            if (bytesRead != 1)
+            {
+                JARMOD_FREE(modctx->modfile);
+                modctx->modfile = 0;
+                modctx->modfilesize = 0;
+                fsize = 0;
+            }]=])
+string(FIND "${_gridfall_jar_mod_source}" "${_gridfall_fread_before}" _gridfall_fread_old_index)
+string(FIND "${_gridfall_jar_mod_source}" "${_gridfall_fread_after}" _gridfall_fread_new_index)
+set(_gridfall_jar_mod_changed FALSE)
+if (_gridfall_fread_old_index GREATER_EQUAL 0)
+    string(REPLACE "${_gridfall_fread_before}" "${_gridfall_fread_after}" _gridfall_jar_mod_source "${_gridfall_jar_mod_source}")
+    set(_gridfall_jar_mod_changed TRUE)
+elseif (_gridfall_fread_new_index LESS 0)
+    message(FATAL_ERROR "Could not locate Raylib jar_mod fread call to check. Raylib source changed; review the dependency patch.")
+endif()
+if (_gridfall_jar_mod_changed)
+    file(WRITE "${_gridfall_jar_mod_path}" "${_gridfall_jar_mod_source}")
+endif()
+
+if (_gridfall_raylib_source_changed)
+    message(STATUS "Gridfall patched Raylib SDL mouse input: frame reset, signed accumulation, native-relative default")
 else()
     message(STATUS "Gridfall Raylib SDL mouse-delta patch already present")
 endif()
+message(STATUS "Gridfall checked Raylib jar_mod fread result")
