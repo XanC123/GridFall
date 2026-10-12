@@ -25,7 +25,7 @@ void MouseInput::configurePlatformBeforeWindow() noexcept {
     }
     const SDL_bool driverHint = SDL_SetHintWithPriority(SDL_HINT_VIDEODRIVER,"wayland",SDL_HINT_OVERRIDE);
     const SDL_bool relativeHint = SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP,"0",SDL_HINT_OVERRIDE);
-    std::fprintf(stderr,"[SDL_INPUT] WSLg Wayland available; native relative motion requested (driverHint=%s, rawRelativeHint=%s).\n",
+    std::fprintf(stderr,"[SDL_INPUT] WSLg Wayland available; requesting Wayland first with X11 fallback (driverHint=%s, rawRelativeHint=%s).\n",
                  driverHint==SDL_TRUE?"set":"rejected",relativeHint==SDL_TRUE?"set":"rejected");
     std::fflush(stderr);
 }
