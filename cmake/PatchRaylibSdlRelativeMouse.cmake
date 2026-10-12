@@ -33,16 +33,22 @@ int GridfallRelativeMouseModeActive(void) {
 elseif (_consume LESS 0 OR _reset LESS 0)
  message(FATAL_ERROR "Incomplete Gridfall relative-mouse API.")
 elseif (_mode LESS 0)
- set(_oldapi [=[void GridfallResetRelativeMouseDelta(void) {
- gridfallRelativeMouseDelta = (Vector2){ 0.0f, 0.0f };
+ set(_oldapi [=[void GridfallResetRelativeMouseDelta(void)
+{
+    gridfallRelativeMouseDelta = (Vector2){ 0.0f, 0.0f };
 }
+
 #ifndef MAX_CLIPBOARD_BUFFER_LENGTH]=])
- set(_newapi [=[void GridfallResetRelativeMouseDelta(void) {
- gridfallRelativeMouseDelta = (Vector2){ 0.0f, 0.0f };
+ set(_newapi [=[void GridfallResetRelativeMouseDelta(void)
+{
+    gridfallRelativeMouseDelta = (Vector2){ 0.0f, 0.0f };
 }
-int GridfallRelativeMouseModeActive(void) {
- return SDL_GetRelativeMouseMode() == SDL_TRUE;
+
+int GridfallRelativeMouseModeActive(void)
+{
+    return SDL_GetRelativeMouseMode() == SDL_TRUE;
 }
+
 #ifndef MAX_CLIPBOARD_BUFFER_LENGTH]=])
  string(FIND "${_src}" "${_oldapi}" _oi)
  if (_oi LESS 0)
@@ -67,7 +73,11 @@ if (_ro GREATER_EQUAL 0)
  string(REPLACE "${_reset_old}" "${_reset_new}" _src "${_src}")
  set(_changed TRUE)
 elseif (_rn LESS 0)
- message(FATAL_ERROR "Raylib relative mouse reset block was not found.")
+ string(FIND "${_src}" "CORE.Input.Mouse.currentPosition = (Vector2){ 0.0f, 0.0f };" _relative_current_zero)
+ string(FIND "${_src}" "CORE.Input.Mouse.previousPosition = (Vector2){ 0.0f, 0.0f };" _relative_previous_zero)
+ if (_relative_current_zero LESS 0 OR _relative_previous_zero LESS 0)
+  message(FATAL_ERROR "Raylib relative mouse reset block was not found.")
+ endif()
 endif()
 
 set(_motion_old [=[                    CORE.Input.Mouse.currentPosition.x = (float)event.motion.xrel;
@@ -84,7 +94,10 @@ if (_mo GREATER_EQUAL 0)
  string(REPLACE "${_motion_old}" "${_motion_new}" _src "${_src}")
  set(_changed TRUE)
 elseif (_mn LESS 0)
- message(FATAL_ERROR "Raylib relative-motion handler was not found.")
+ string(FIND "${_src}" "gridfallRelativeMouseDelta.x += (float)event.motion.xrel;" _relative_accumulator_found)
+ if (_relative_accumulator_found LESS 0)
+  message(FATAL_ERROR "Raylib relative-motion handler was not found.")
+ endif()
 endif()
 
 # Find the definition, not the prototype; replace through cursorLocked=true.
