@@ -91,7 +91,7 @@ endif()
 
 if (_gridfall_raylib_source_changed)
     file(WRITE "${_gridfall_raylib_sdl_path}" "${_gridfall_raylib_sdl_source}")
-    message(STATUS "Gridfall patched Raylib SDL mouse deltas: per-frame reset + signed event accumulation")
+    message(STATUS "Gridfall patched Raylib SDL mouse input: frame reset, signed accumulation, driver-aware relative fallback")
 else()
     message(STATUS "Gridfall Raylib SDL mouse-delta patch already present")
 endif()
