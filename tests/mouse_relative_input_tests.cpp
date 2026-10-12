@@ -52,6 +52,16 @@ int main() {
     CHECK(gDisableCalls == 1);
     CHECK(input.backendName() != nullptr);
 
+    // The first read after capture still sees the final absolute-mode sample.
+    // The next read can include relative-mode transition motion; neither may
+    // affect the camera.
+    const MouseDelta staleSample = input.consumeDelta();
+    CHECK(staleSample.x == 0.0f && staleSample.y == 0.0f);
+    gNextDx = 2400.0f;
+    gNextDy = -1800.0f;
+    const MouseDelta captureTransitionSample = input.consumeDelta();
+    CHECK(captureTransitionSample.x == 0.0f && captureTransitionSample.y == 0.0f);
+
     struct Motion {
         const char* name;
         float dx;
@@ -91,7 +101,7 @@ int main() {
     // A stationary mouse produces zero on the next frame; a delta is consumed once.
     const MouseDelta stationary = input.consumeDelta();
     CHECK(stationary.x == 0.0f && stationary.y == 0.0f);
-    CHECK(gGetDeltaCalls == callsBeforeCapture + 9);
+    CHECK(gGetDeltaCalls == callsBeforeCapture + 11);
 
     input.setCaptured(false);
     CHECK(gEnableCalls == 1);
@@ -103,6 +113,12 @@ int main() {
 
     input.setCaptured(true);
     CHECK(gDisableCalls == 2);
+    const MouseDelta staleRecaptureSample = input.consumeDelta();
+    CHECK(staleRecaptureSample.x == 0.0f && staleRecaptureSample.y == 0.0f);
+    gNextDx = -1600.0f;
+    gNextDy = 1200.0f;
+    const MouseDelta recaptureTransitionSample = input.consumeDelta();
+    CHECK(recaptureTransitionSample.x == 0.0f && recaptureTransitionSample.y == 0.0f);
     gNextDx = 5.0f;
     gNextDy = -3.0f;
     const MouseDelta afterRecapture = input.consumeDelta();
