@@ -9,7 +9,7 @@ using namespace gridfall;
 
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(1040, 700, "GRIDFALL // SDL RELATIVE MOUSE INPUT PROBE");
+    InitWindow(1040, 700, "GRIDFALL // CENTER-RELATIVE POINTER PROBE");
     if (!IsWindowReady()) return 1;
     SetExitKey(KEY_NULL);
     SetTargetFPS(144);
@@ -21,7 +21,6 @@ int main() {
 
     bool captureRequested = false;
     bool cursorCaptured = false;
-    bool discardFirstDelta = false;
     MouseDelta latest{};
 
     while (!WindowShouldClose()) {
@@ -36,31 +35,26 @@ int main() {
         if (shouldCapture != cursorCaptured) {
             cursorCaptured = shouldCapture;
             mouse.setCaptured(shouldCapture);
-            discardFirstDelta = true;
         }
 
         latest = cursorCaptured ? mouse.consumeDelta() : MouseDelta{};
-        if (discardFirstDelta) {
-            latest = {};
-            discardFirstDelta = false;
-        }
         look.update(latest.x, latest.y);
         const Vec2 facing = look.facing();
 
         BeginDrawing();
         ClearBackground(Color{19, 23, 29, 255});
-        DrawText("GRIDFALL / SDL RELATIVE MOUSE DIAGNOSTIC", 28, 24, 25, RAYWHITE);
+        DrawText("GRIDFALL / CENTER-RELATIVE MOUSE DIAGNOSTIC", 28, 24, 25, RAYWHITE);
         DrawText(TextFormat("Backend: %s", mouse.backendName()), 30, 66, 18, GREEN);
         DrawText("SPACE: capture/release    R: reset yaw/pitch    ESC: release cursor", 30, 98, 16, LIGHTGRAY);
         DrawText(TextFormat("Capture: %s    Window focus: %s", cursorCaptured ? "ON" : "OFF",
                             IsWindowFocused() ? "YES" : "NO"), 30, 130, 17, RAYWHITE);
         DrawText(TextFormat("Input path: %s", mouse.backendName()), 30, 162, 16, Color{195, 211, 228, 255});
-        DrawText("SPACE captures. Movement should change dx/dy; a stationary mouse must not rotate.",
+        DrawText("SPACE captures. Move the hidden pointer from center; a stationary mouse must not rotate.",
                  30, 188, 15, LIGHTGRAY);
         DrawText("Gameplay has an automatic 10-second terminal input trace.",
                  30, 212, 14, Color{184, 198, 214, 255});
 
-        DrawText("LIVE DELTAS (relative pixels per poll)", 30, 232, 18, Color{150, 193, 230, 255});
+        DrawText("LIVE DELTAS (center-relative pixels per poll)", 30, 232, 18, Color{150, 193, 230, 255});
         DrawText(TextFormat("dx: %8.2f", latest.x), 30, 266, 22, RAYWHITE);
         DrawText(TextFormat("dy: %8.2f", latest.y), 30, 298, 22, RAYWHITE);
         DrawText(TextFormat("yaw:   % .4f rad", look.yaw()), 30, 344, 20, RAYWHITE);
