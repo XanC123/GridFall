@@ -9,7 +9,7 @@
 namespace gridfall {
 namespace {
 
-constexpr unsigned int kCaptureWarmupSamples = 2;
+constexpr unsigned int kCaptureWarmupSamples = 1;
 constexpr double kDiagnosticsDurationSeconds = 10.0;
 constexpr double kDiagnosticsReportIntervalSeconds = 0.25;
 constexpr float kRadiansToDegrees = 57.29577951308232f;
@@ -166,7 +166,7 @@ void MouseInput::reportGameplaySample(MouseDelta delta, const MouseLookControlle
 }
 
 const char* MouseInput::backendName() const noexcept {
-    return "Gridfall-patched Raylib SDL relative mouse (accumulated xrel/yrel)";
+    return "Gridfall-patched Raylib SDL relative mouse (WSLg warp-compatible mode)";
 }
 
 void MouseInput::shutdown() noexcept {
