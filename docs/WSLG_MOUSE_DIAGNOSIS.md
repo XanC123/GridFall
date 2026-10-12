@@ -6,6 +6,22 @@ The title menu's absolute cursor-position path worked, but the gameplay path use
 
 ## Current fix direction
 
+## Relative-mode fallback for WSLg/XWayland
+
+The SDL2 relative-mode API can still deliver virtual-pointer-sized values on some
+Wayland/XWayland or virtualized Linux paths. The WSL launcher therefore defaults
+`SDL_MOUSE_RELATIVE_MODE_WARP=1`, asking SDL2 to emulate relative motion by
+warping the pointer rather than relying on the raw relative-event path. The
+setting is also applied by the standalone mouse probe, and can be overridden for
+comparison by launching with `SDL_MOUSE_RELATIVE_MODE_WARP=0`.
+
+This is a platform workaround, not a sensitivity multiplier or an arbitrary
+per-frame clamp. Gridfall still consumes signed relative deltas and applies the
+configured radians-per-pixel setting once. The first stale sample during
+capture/re-capture is discarded at the input adapter boundary; the first later
+relative sample is retained.
+
+
 The current project fetches Raylib 6.0 and compiles it with `PLATFORM=SDL`, using SDL2 relative mouse mode. Raylib's SDL backend calls `SDL_SetRelativeMouseMode(SDL_TRUE)` when `DisableCursor()` is called, and in locked mode it assigns mouse motion from the SDL event's signed `xrel/yrel`, rather than deriving it from the virtual cursor's position. This follows the workaround noted by the Raylib maintainer for the reported Linux `DisableCursor()` delta issue.
 
 The project removes custom X11/XInput2 connections and GLFW virtual-cursor polling from its gameplay path. The `MouseInput` wrapper deliberately uses only Raylib's `DisableCursor`, `EnableCursor`, and `GetMouseDelta` API so platform details stay inside the selected Raylib SDL build.
