@@ -51,12 +51,12 @@ int main() {
         DrawText(TextFormat("Capture: %s    Window focus: %s", cursorCaptured ? "ON" : "OFF",
                             IsWindowFocused() ? "YES" : "NO"), 30, 130, 17, RAYWHITE);
         DrawText(TextFormat("Input path: %s", mouse.backendName()), 30, 162, 16, Color{195, 211, 228, 255});
-        DrawText("SPACE captures. Move the hidden pointer from center; a stationary mouse must not rotate.",
+        DrawText("SPACE captures. Move the mouse while captured; stationary input must not rotate.",
                  30, 188, 15, LIGHTGRAY);
         DrawText("Gameplay has an automatic 10-second terminal input trace.",
                  30, 212, 14, Color{184, 198, 214, 255});
 
-        DrawText("LIVE DELTAS (center-relative pixels per poll)", 30, 232, 18, Color{150, 193, 230, 255});
+        DrawText("LIVE DELTAS (relative pixels per poll)", 30, 232, 18, Color{150, 193, 230, 255});
         DrawText(TextFormat("dx: %8.2f", latest.x), 30, 266, 22, RAYWHITE);
         DrawText(TextFormat("dy: %8.2f", latest.y), 30, 298, 22, RAYWHITE);
         DrawText(TextFormat("yaw:   % .4f rad", look.yaw()), 30, 344, 20, RAYWHITE);
