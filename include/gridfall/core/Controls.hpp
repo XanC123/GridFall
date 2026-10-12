@@ -12,11 +12,12 @@ struct MouseDelta {
 };
 
 // Mouse-look settings are kept in one place rather than hidden in update math.
+// Moderate default gain keeps short physical movements precise without adding smoothing lag.
 // The default signs follow conventional FPS behavior; flip either setting only
 // if the physical input trace proves that axis is delivered with the opposite sign.
 struct MouseLookSettings {
-    float horizontalRadiansPerPixel{0.0035f};
-    float verticalRadiansPerPixel{0.0035f};
+    float horizontalRadiansPerPixel{0.0018f};
+    float verticalRadiansPerPixel{0.0018f};
     bool invertHorizontal{false};
     bool invertVertical{false};
     float minimumPitchRadians{-1.20f};
