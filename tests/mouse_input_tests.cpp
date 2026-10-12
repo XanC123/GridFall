@@ -57,6 +57,24 @@ int main() {
     CHECK(invertedCamera.yaw() < 0.0f);
     CHECK(invertedCamera.pitch() < 0.0f);
 
+    // Positive horizontal input must turn toward camera-right, not alter pitch.
+    MouseLookController rightTurn;
+    rightTurn.reset(0.0f, 0.0f);
+    const Vec2 initialForward = rightTurn.facing();
+    const Vec2 cameraRight{-initialForward.y, initialForward.x};
+    rightTurn.update(24.0f, 0.0f);
+    const Vec2 positiveTurn = rightTurn.facing();
+    CHECK(positiveTurn.x * cameraRight.x + positiveTurn.y * cameraRight.y > 0.0f);
+    CHECK(std::fabs(rightTurn.pitch()) < 0.00001f);
+
+    MouseLookController leftTurn;
+    leftTurn.reset(0.0f, 0.0f);
+    const Vec2 initialForwardForLeft = leftTurn.facing();
+    const Vec2 cameraRightForLeft{-initialForwardForLeft.y, initialForwardForLeft.x};
+    leftTurn.update(-24.0f, 0.0f);
+    const Vec2 negativeTurn = leftTurn.facing();
+    CHECK(negativeTurn.x * cameraRightForLeft.x + negativeTurn.y * cameraRightForLeft.y < 0.0f);
+    CHECK(std::fabs(leftTurn.pitch()) < 0.00001f);
     MouseLookController stationary;
     stationary.reset(0.25f, -0.1f);
     const float yawBefore = stationary.yaw();
