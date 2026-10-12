@@ -1,23 +1,25 @@
-# WSLg relative-mouse diagnosis
+# WSLg mouse-input stability diagnosis
+
+## What the live trace showed
+
+The gameplay trace reported per-sample peaks as large as 463 horizontal and 527 vertical pixels, mixed with zero samples. Those are not ordinary per-frame relative deltas for a mouse moving at game render rate. The trace also showed yaw snapping from about +99.5 degrees to 0 degrees while the accumulated X input was only -10 pixels; that reset matched mouseLook_.reset() being called inside loadLevel() during sector transitions.
+
+SDL has documented cases where relative-mode input on Linux, Wayland/XWayland, or virtualized devices can mistake absolute valuator coordinates for relative deltas. See https://github.com/libsdl-org/SDL/issues/1836. Further sensitivity tuning alone cannot correct such samples.
 
 ## Current input path
 
-GridFall builds its own Raylib 6.0 SDL2 backend because the earlier GLFW cursor-disabled path on this WSLg/XWayland session produced large, biased virtual-cursor deltas. A separate direct XInput2 raw-motion subscription also received no events.
+Gridfall now deliberately avoids DisableCursor() during gameplay. It calls HideCursor() without enabling SDL relative mode, places the pointer at the client-area center, reads the ordinary absolute cursor position, converts its offset from center into a signed X/Y displacement, and calls SetMousePosition() to recenter only after movement. The menu and skill-tree use the same known-working absolute pointer path while the cursor is visible.
 
-The game now consumes a dedicated signed relative-motion accumulator patched into Raylib's SDL event loop. While the cursor is captured, each SDL mouse-motion event contributes xrel to horizontal input and yrel to vertical input. GridfallConsumeRelativeMouseDelta() returns and clears that accumulator directly. The game no longer reconstructs look input by subtracting Raylib's shared absolute cursor positions or applying Raylib cursor scale to those position differences. The absolute cursor path remains available to the title menu and skill-tree UI.
+No low-pass smoothing or frame-time multiplication is applied; those would add lag to the physical mouse. Default radians-per-pixel sensitivity is reduced from 0.0035 to 0.0018 on both axes. The mouse adapter uses a single capture-transition warm-up sample, and the visual probe no longer discards a second sample independently.
 
-The backend defaults to SDL's native relative mode on X11, with GRIDFALL_SDL_RELATIVE_MOUSE_WARP=1 available only as an explicit comparison override. Capture transitions clear queued deltas, and the adapter consumes a single warm-up sample so a stale transition sample cannot rotate the camera.
+Camera yaw/pitch are reset for a new run, but no longer reset inside loadLevel(). Camera facing is kept in sync when a new sector is loaded, so sector transitions should not unexpectedly turn the view back to zero.
 
-## Axis and camera contract
+## Acceptance checks
 
-- Positive SDL xrel means physical movement to the right and must change yaw in one consistent direction.
-- Negative SDL xrel must reverse yaw; horizontal input must not change pitch.
-- Negative SDL yrel means physical movement up and changes pitch; positive yrel reverses it. Vertical input must not change yaw.
-- A diagonal motion changes yaw and pitch independently; the two raw components are never swapped.
-- The default horizontal sign is retained because the camera's yaw/facing/right-vector convention and automated direction tests agree. Do not change inversion defaults merely to compensate for corrupted or oversized samples.
+- Moving right/left changes yaw in opposite directions; up/down changes pitch in opposite directions.
+- A horizontal sample never changes pitch, and a vertical sample never changes yaw.
+- A stationary pointer produces zero; after any non-zero sample the pointer returns to the center before the next read.
+- Moving between sectors does not reset yaw or pitch.
+- The 10-second live trace has no desktop-coordinate-sized spikes and no unexpected yaw/pitch reset.
 
-The automatic first-10-second gameplay trace reports signed raw deltas next to yaw/pitch/facing changes. This can determine whether a remaining direction defect starts in the SDL event stream or after the adapter.
-
-## Verification boundary
-
-Headless tests prove the adapter returns isolated signed components exactly once and that the camera's math maps them to independent yaw/pitch changes. They cannot simulate WSLg's physical mouse, XWayland, or compositor event delivery. The final physical-device acceptance test must still use the interactive probe and gameplay trace on the target WSLg desktop.
+Headless tests validate adapter bookkeeping and camera math only. The final check still needs the physical WSLg mouse because event delivery and pointer warping are platform-dependent.
