@@ -120,8 +120,8 @@ if (GRIDFALL_BUILD_TESTS)
     endif()
     add_test(NAME gridfall_mouse_input_tests COMMAND gridfall_mouse_input_tests)
 
-    # Build and execute production MouseInput.cpp against a deterministic Raylib mock.
-    # This tests center-relative X/Y, recenter behavior, and capture lifecycle.
+    # Build and execute production MouseInput.cpp against a deterministic SDL-relative API mock.
+    # This tests signed deltas, eight directions, capture lifecycle and failed capture.
     add_executable(gridfall_mouse_relative_input_tests
         tests/mouse_relative_input_tests.cpp
         src/core/MouseInput.cpp
