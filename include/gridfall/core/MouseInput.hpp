@@ -30,7 +30,7 @@ private:
     bool captureCenterInitialized_{};
     int captureCenterX_{};
     int captureCenterY_{};
-    unsigned int captureWarmupSamplesRemaining_{}
+    unsigned int captureWarmupSamplesRemaining_{};
     bool diagnosticsStarted_{};
     bool diagnosticsFinished_{};
     double diagnosticElapsedSeconds_{};
