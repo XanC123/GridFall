@@ -9,9 +9,9 @@ option(GRIDFALL_BUILD_GAME "Build the Raylib graphical game" ON)
 option(GRIDFALL_FETCH_RAYLIB "Fetch and build the selected Raylib backend" ON)
 option(GRIDFALL_BUILD_TESTS "Build headless gameplay/domain tests" ON)
 option(GRIDFALL_BUILD_BENCHMARKS "Build headless performance benchmark/report tool" ON)
-option(GRIDFALL_BUILD_MOUSE_PROBE "Build an interactive relative mouse diagnostic window" ON)
+option(GRIDFALL_BUILD_MOUSE_PROBE "Build an interactive center-relative mouse diagnostic window" ON)
 option(GRIDFALL_FORCE_FETCH_RAYLIB "Legacy compatibility flag; Gridfall now fetches SDL-backed Raylib for WSLg" ON)
-option(GRIDFALL_USE_SDL_RAYLIB "Use Raylib 6.0's SDL2 platform backend for reliable WSLg relative motion" ON)
+option(GRIDFALL_USE_SDL_RAYLIB "Use Raylib 6.0 SDL2 backend with WSLg absolute-pointer recentering" ON)
 
 set(GRIDFALL_DOMAIN_SOURCES
     src/world/Level.cpp
@@ -27,7 +27,7 @@ if (GRIDFALL_BUILD_GAME)
     if (NOT GRIDFALL_USE_SDL_RAYLIB)
         message(FATAL_ERROR
             "This WSLg mouse-fix build requires GRIDFALL_USE_SDL_RAYLIB=ON. "
-            "The previous GLFW/XInput2 backend did not receive reliable relative motion in your session.")
+            "The graphical target expects the selected SDL2-backed Raylib build.")
     endif()
     if (NOT GRIDFALL_FETCH_RAYLIB)
         message(FATAL_ERROR
@@ -35,9 +35,8 @@ if (GRIDFALL_BUILD_GAME)
             "the system Raylib installation uses the GLFW backend.")
     endif()
 
-    # Crucial: do not link /usr/local's existing GLFW-backed Raylib. Build a private
-    # Raylib 6.0 copy with its supported SDL2 platform backend instead. Raylib's SDL
-    # implementation receives SDL_MOUSEMOTION xrel/yrel while DisableCursor() is active.
+    # Build a private Raylib 6.0 SDL2 copy. Gameplay deliberately avoids SDL relative
+    # mode on WSLg/XWayland; MouseInput hides and recenters the working absolute pointer.
     find_package(SDL2 CONFIG REQUIRED)
     set(PLATFORM SDL CACHE STRING "Raylib platform backend for Gridfall" FORCE)
     set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Raylib examples" FORCE)
@@ -56,7 +55,7 @@ if (GRIDFALL_BUILD_GAME)
     if (NOT TARGET raylib)
         message(FATAL_ERROR "Raylib was not built. Check SDL2 development files and network access.")
     endif()
-    message(STATUS "Gridfall mouse input: isolated signed SDL xrel/yrel accumulator (Raylib 6.0 SDL2)")
+    message(STATUS "Gridfall mouse input: hidden absolute pointer + center recentering (Raylib 6.0 SDL2)")
 
     add_executable(gridfall
         src/main.cpp
@@ -120,9 +119,8 @@ if (GRIDFALL_BUILD_TESTS)
     endif()
     add_test(NAME gridfall_mouse_input_tests COMMAND gridfall_mouse_input_tests)
 
-    # Build and execute the production MouseInput.cpp against deterministic mock
-    # Raylib calls. This tests that Gridfall passes signed per-frame SDL-style deltas
-    # to the camera exactly once and only while relative capture is active.
+    # Build and execute production MouseInput.cpp against a deterministic Raylib mock.
+    # This tests center-relative X/Y, recenter behavior, and capture lifecycle.
     add_executable(gridfall_mouse_relative_input_tests
         tests/mouse_relative_input_tests.cpp
         src/core/MouseInput.cpp
