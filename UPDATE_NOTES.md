@@ -1,19 +1,19 @@
-# Update Notes — Isolated SDL Relative Mouse Input
+# Update Notes — WSLg Mouse Stability and Camera Continuity
 
-## Diagnosis and design
+## Diagnosis
 
-GridFall's WSLg/XWayland input path previously combined SDL relative motion with Raylib's shared current/previous cursor-position state. That API is also used for absolute UI pointer coordinates, and GetMouseDelta() derives its answer from position subtraction and applies Raylib mouse scaling. The project now exposes a private, Gridfall-specific accessor in the patched Raylib SDL source so gameplay reads the signed SDL relative-motion event fields directly.
+The user's live trace showed samples up to 463 horizontal and 527 vertical pixels, mixed with zero samples, and a sudden yaw reset from about +99.5 degrees to zero when the accumulated X delta was only -10 pixels. This indicated two separate problems: unreliable SDL relative-mode deltas on the WSLg/XWayland path, and camera orientation being reset from loadLevel() during a sector transition. SDL has documented cases where absolute-valuator coordinates are mistaken for relative deltas on Linux/virtualized input paths: https://github.com/libsdl-org/SDL/issues/1836.
 
 ## Changes
 
-- Keep Raylib's existing mouse-position bookkeeping intact for UI and any other Raylib consumers.
-- Add a dedicated gridfallRelativeMouseDelta accumulator. Each captured SDL_MOUSEMOTION event adds xrel only to X and yrel only to Y.
-- Add GridfallConsumeRelativeMouseDelta(), which returns and clears the accumulated signed pair, and GridfallResetRelativeMouseDelta(), used during cursor-capture transitions.
-- Update MouseInput to consume that accumulator, ignore non-finite components, clear pending motion before changing capture modes, and discard one capture-warmup sample while preserving the next sample.
-- Keep the calibrated radians-per-pixel values, default axis signs, pitch bounds, fixed 60 Hz simulation, render-rate mouse look, and rendering/UI unchanged. Do not multiply relative deltas by frame time, smooth them a second time, or hide anomalies with arbitrary clipping.
-- Add tests that assert the production adapter does not call GetMouseDelta(), X/Y never cross, capture lifecycle clears stale values, and positive/negative horizontal motion turns toward/away from the camera-right vector.
-- Preserve the Raylib SDL dependency patch's explicit source-pattern checks and the checked fread result guard for strict-warning builds.
+- Stop enabling SDL relative mouse mode for gameplay. Use HideCursor() while leaving the pointer in absolute mode, compute signed displacement from the client-area center, and recenter only after a non-zero movement sample.
+- Keep the title menu and skill-tree on the same ordinary absolute-pointer path.
+- Reduce default horizontal and vertical sensitivity from 0.0035 to 0.0018 radians per pixel; do not add low-pass smoothing or frame-time scaling.
+- Keep camera yaw/pitch across loadLevel() transitions and initialize player facing from the current camera.
+- Remove the duplicate warm-up sample discard from the interactive mouse probe.
+- Replace the old Raylib SDL relative-motion patch with only the strict-warning fread result check for Raylib's bundled module loader.
+- Add adapter tests for center-relative signed axes, single-sample recentering, stationary zero, all eight directions, resizing, and capture lifecycle.
 
 ## Verification boundary
 
-Automated tests validate input adapter plumbing and camera math. They cannot verify a physical mouse under WSLg/XWayland. Run the interactive probe and review the gameplay trace after rebuilding on the target machine before considering the live input issue fully closed.
+Automated tests can validate center-relative bookkeeping and camera math. They cannot verify a physical mouse under WSLg/XWayland. The live probe and gameplay trace must still be run on the target machine to confirm there are no platform-specific event spikes or recenter artifacts.
