@@ -1,19 +1,14 @@
-# Update Notes — WSLg Mouse Stability and Camera Continuity
+# Update Notes — WSLg Mouse Input V15
 
-## Diagnosis
+V14's hidden absolute pointer + center warp made the problem worse: up to 792 X and 322 Y pixels per frame, X stuck negative, and total X delta `-195323`. The compositor did not reliably warp the physical pointer, so absolute offsets were repeatedly interpreted as new movement. The mock tests incorrectly assumed warp success.
 
-The user's live trace showed samples up to 463 horizontal and 527 vertical pixels, mixed with zero samples, and a sudden yaw reset from about +99.5 degrees to zero when the accumulated X delta was only -10 pixels. This indicated two separate problems: unreliable SDL relative-mode deltas on the WSLg/XWayland path, and camera orientation being reset from loadLevel() during a sector transition. SDL has documented cases where absolute-valuator coordinates are mistaken for relative deltas on Linux/virtualized input paths: https://github.com/libsdl-org/SDL/issues/1836.
+The full path audit traces SDL → Raylib → `MouseInput` → `MouseLookController` → `player_.facing` → `Renderer::makeFirstPersonCamera`. Camera math consistently applies the supplied deltas; the giant turns originate before the controller. The sector-transition reset remains removed from `loadLevel()`.
 
-## Changes
+- Return to signed SDL relative events; remove absolute pointer recentering from gameplay.
+- Prefer native SDL2 Wayland before `InitWindow` when Wayland is available unless `SDL_VIDEODRIVER` was explicitly set.
+- Accumulate all Raylib SDL relative events per poll instead of overwriting multiple events within one frame.
+- Disable SDL warp emulation on Wayland; default to the warp fallback on X11, with `GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0/1` diagnostic overrides.
+- Report the active SDL driver and whether relative mode activated. Fail closed if capture is rejected.
+- Track capture request separately from actual capture in game/probe; remove stale claims that mouse-look is smoothed.
 
-- Stop enabling SDL relative mouse mode for gameplay. Use HideCursor() while leaving the pointer in absolute mode, compute signed displacement from the client-area center, and recenter only after a non-zero movement sample.
-- Keep the title menu and skill-tree on the same ordinary absolute-pointer path.
-- Reduce default horizontal and vertical sensitivity from 0.0035 to 0.0018 radians per pixel; do not add low-pass smoothing or frame-time scaling.
-- Keep camera yaw/pitch across loadLevel() transitions and initialize player facing from the current camera.
-- Remove the duplicate warm-up sample discard from the interactive mouse probe.
-- Replace the old Raylib SDL relative-motion patch with only the strict-warning fread result check for Raylib's bundled module loader.
-- Add adapter tests for center-relative signed axes, single-sample recentering, stationary zero, all eight directions, resizing, and capture lifecycle.
-
-## Verification boundary
-
-Automated tests can validate center-relative bookkeeping and camera math. They cannot verify a physical mouse under WSLg/XWayland. The live probe and gameplay trace must still be run on the target machine to confirm there are no platform-specific event spikes or recenter artifacts.
+Release/sanitizer tests pass, but this environment has no SDL2 development headers or physical WSLg session. Real Wayland relative motion and the live ten-second trace still need verification on the target machine.
