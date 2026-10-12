@@ -7,9 +7,9 @@ export GALLIUM_DRIVER=d3d12
 export MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
 unset LIBGL_ALWAYS_SOFTWARE || true
 
-# SDL2's raw relative-motion path can return virtual-pointer-sized deltas under
-# WSLg/XWayland. Warp-based relative mode avoids that broken raw-input path.
-export SDL_MOUSE_RELATIVE_MODE_WARP="${SDL_MOUSE_RELATIVE_MODE_WARP:-1}"
+# The patched Raylib SDL backend chooses the warp fallback on X11 (WSLg/XWayland)
+# and leaves native Wayland relative motion alone. Override with
+# GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0 or =1 when comparing backends.
 
 if [[ ! -x "build/gridfall" ]]; then
     echo "Gridfall executable not found. Build first with: cmake --build build --parallel" >&2
