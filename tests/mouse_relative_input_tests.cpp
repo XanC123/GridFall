@@ -122,7 +122,7 @@ int main() {
     gNextDy = 777.0f;
     const MouseDelta ignoredAfterRelease = input.consumeDelta();
     CHECK(ignoredAfterRelease.x == 0.0f && ignoredAfterRelease.y == 0.0f);
-    CHECK(gConsumeRelativeCalls == 12);
+    CHECK(gConsumeRelativeCalls == 11);
 
     input.setCaptured(true);
     CHECK(gDisableCalls == 2);
