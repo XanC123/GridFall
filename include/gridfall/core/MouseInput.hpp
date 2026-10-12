@@ -6,9 +6,9 @@
 
 namespace gridfall {
 
-// Thin adapter over Raylib's SDL relative-mouse mode. The Raylib SDL backend
-// is patched by Gridfall's CMake configuration to accumulate every xrel/yrel
-// event and reset both relative-position values at the beginning of each frame.
+// Thin adapter over Gridfall's isolated SDL relative-motion accumulator. The
+// patched Raylib SDL backend records signed xrel/yrel events separately from the
+// absolute cursor-position state used by menus and other Raylib input consumers.
 class MouseInput {
 public:
     MouseInput() = default;
