@@ -6,8 +6,8 @@ export GALLIUM_DRIVER=d3d12
 export MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
 unset LIBGL_ALWAYS_SOFTWARE || true
 
-# The patched Raylib SDL backend chooses warp fallback on X11 only; native
-# Wayland keeps relative mode. Set GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0/1 to compare.
+# The patched backend defaults to native/raw relative input. Use
+# GRIDFALL_SDL_RELATIVE_MOUSE_WARP=1 only to compare the legacy warp fallback.
 
 if [[ ! -x build/gridfall_mouse_probe ]]; then
     echo "Mouse probe not built. Configure with -DGRIDFALL_BUILD_MOUSE_PROBE=ON and build first." >&2
