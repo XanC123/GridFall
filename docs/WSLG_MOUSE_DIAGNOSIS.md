@@ -1,25 +1,21 @@
 # WSLg mouse-input stability diagnosis
 
-## What the live trace showed
+V14's absolute-pointer recenter experiment made the camera spin faster. X samples repeatedly stayed negative, peaks reached hundreds of pixels per frame, and total X reached `-195323` over ten seconds. The implementation assumed `SetMousePosition()` moved the physical pointer to the center. Wayland does not guarantee that warp, so an unchanged absolute offset could be consumed repeatedly as new motion. Its mock tests incorrectly assumed warp success.
 
-The gameplay trace reported per-sample peaks as large as 463 horizontal and 527 vertical pixels, mixed with zero samples. Those are not ordinary per-frame relative deltas for a mouse moving at game render rate. The trace also showed yaw snapping from about +99.5 degrees to 0 degrees while the accumulated X input was only -10 pixels; that reset matched mouseLook_.reset() being called inside loadLevel() during sector transitions.
+SDL has documented cases where relative-mode input on Linux/virtualized paths confuses absolute valuators and relative deltas: [SDL issue #1836](https://github.com/libsdl-org/SDL/issues/1836). Sensitivity tuning cannot fix source data that is already corrupt.
 
-SDL has documented cases where relative-mode input on Linux, Wayland/XWayland, or virtualized devices can mistake absolute valuator coordinates for relative deltas. See https://github.com/libsdl-org/SDL/issues/1836. Further sensitivity tuning alone cannot correct such samples.
+The input chain is SDL events → Raylib SDL handler → isolated `xrel/yrel` accumulator → `MouseInput::consumeDelta()` → `MouseLookController::update()` → player-facing/yaw/pitch → `Renderer::makeFirstPersonCamera()`. The camera applies the supplied deltas linearly, and the renderer builds a consistent forward vector. The huge turns originate before camera math.
 
-## Current input path
+The current code avoids absolute-pointer warping. Before `InitWindow`, it prefers SDL2's Wayland driver when available and `WAYLAND_DISPLAY` is set, unless `SDL_VIDEODRIVER` was explicitly selected. The patched Raylib handler accumulates all relative events since the previous poll. Wayland disables warp emulation; X11 defaults to SDL's warp fallback, controllable with `GRIDFALL_SDL_RELATIVE_MOUSE_WARP=0/1`. Capture success is checked, and failed capture produces zero camera input.
 
-Gridfall now deliberately avoids DisableCursor() during gameplay. It calls HideCursor() without enabling SDL relative mode, places the pointer at the client-area center, reads the ordinary absolute cursor position, converts its offset from center into a signed X/Y displacement, and calls SetMousePosition() to recenter only after movement. The menu and skill-tree use the same known-working absolute pointer path while the cursor is visible.
+Yaw and pitch are preserved across sector transitions. A new run intentionally resets the camera, and Renderer does not add smoothing.
 
-No low-pass smoothing or frame-time multiplication is applied; those would add lag to the physical mouse. Default radians-per-pixel sensitivity is reduced from 0.0035 to 0.0018 on both axes. The mouse adapter uses a single capture-transition warm-up sample, and the visual probe no longer discards a second sample independently.
+## Live acceptance checks
 
-Camera yaw/pitch are reset for a new run, but no longer reset inside loadLevel(). Camera facing is kept in sync when a new sector is loaded, so sector transitions should not unexpectedly turn the view back to zero.
+- Expect `[SDL_INPUT] WSLg Wayland available...` when the linked SDL build includes Wayland.
+- Capture should log `SDL driver=wayland path=native-relative relative-mode=active`.
+- Right/left change yaw in opposite directions; up/down change pitch in opposite directions; axes remain independent.
+- A stationary pointer yields zero deltas; normal movement has no repeated screen-sized spikes.
+- Sector transitions do not reset yaw or pitch.
 
-## Acceptance checks
-
-- Moving right/left changes yaw in opposite directions; up/down changes pitch in opposite directions.
-- A horizontal sample never changes pitch, and a vertical sample never changes yaw.
-- A stationary pointer produces zero; after any non-zero sample the pointer returns to the center before the next read.
-- Moving between sectors does not reset yaw or pitch.
-- The 10-second live trace has no desktop-coordinate-sized spikes and no unexpected yaw/pitch reset.
-
-Headless tests validate adapter bookkeeping and camera math only. The final check still needs the physical WSLg mouse because event delivery and pointer warping are platform-dependent.
+Headless tests validate the adapter and camera math only. Real WSLg mouse delivery still requires testing on the target system.

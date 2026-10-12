@@ -8,8 +8,9 @@
 using namespace gridfall;
 
 int main() {
+    MouseInput::configurePlatformBeforeWindow();
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(1040, 700, "GRIDFALL // CENTER-RELATIVE POINTER PROBE");
+    InitWindow(1040, 700, "GRIDFALL // SDL RELATIVE INPUT PROBE");
     if (!IsWindowReady()) return 1;
     SetExitKey(KEY_NULL);
     SetTargetFPS(144);
@@ -20,6 +21,7 @@ int main() {
     look.reset(0.0f, 0.0f);
 
     bool captureRequested = false;
+    bool captureAttempted = false;
     bool cursorCaptured = false;
     MouseDelta latest{};
 
@@ -32,9 +34,9 @@ int main() {
         if (IsKeyPressed(KEY_ESCAPE)) captureRequested = false;
 
         const bool shouldCapture = captureRequested && IsWindowFocused();
-        if (shouldCapture != cursorCaptured) {
-            cursorCaptured = shouldCapture;
-            mouse.setCaptured(shouldCapture);
+        if (shouldCapture != captureAttempted) {
+            captureAttempted = shouldCapture;
+            cursorCaptured = mouse.setCaptured(shouldCapture);
         }
 
         latest = cursorCaptured ? mouse.consumeDelta() : MouseDelta{};
@@ -43,7 +45,7 @@ int main() {
 
         BeginDrawing();
         ClearBackground(Color{19, 23, 29, 255});
-        DrawText("GRIDFALL / CENTER-RELATIVE MOUSE DIAGNOSTIC", 28, 24, 25, RAYWHITE);
+        DrawText("GRIDFALL / SDL RELATIVE MOUSE DIAGNOSTIC", 28, 24, 25, RAYWHITE);
         DrawText(TextFormat("Backend: %s", mouse.backendName()), 30, 66, 18, GREEN);
         DrawText("SPACE: capture/release    R: reset yaw/pitch    ESC: release cursor", 30, 98, 16, LIGHTGRAY);
         DrawText(TextFormat("Capture: %s    Window focus: %s", cursorCaptured ? "ON" : "OFF",
@@ -81,7 +83,7 @@ int main() {
         EndDrawing();
     }
 
-    mouse.setCaptured(false);
+    (void)mouse.setCaptured(false);
     mouse.shutdown();
     CloseWindow();
     return 0;

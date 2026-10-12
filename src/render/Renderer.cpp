@@ -252,8 +252,8 @@ void Renderer::draw(const Level& level, const Player& player, const std::vector<
     const float alpha = clampf(interpolationAlpha, 0.0f, 1.0f);
     Player renderedPlayer = player;
     renderedPlayer.position = lerpVec2(player.previousPosition, player.position, alpha);
-    // Mouse-look is already smoothed at render rate. Interpolating facing a
-    // second time here can cause a visible twitch near +/-pi and adds input lag.
+    // Mouse-look is updated directly from relative input at render rate. Do not
+    // interpolate its facing again: that would add visible aim lag.
     renderedPlayer.facing = player.facing;
     const Camera3D camera = makeFirstPersonCamera(renderedPlayer.position, renderedPlayer.facing, cameraPitch);
 
