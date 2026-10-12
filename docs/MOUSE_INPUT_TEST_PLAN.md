@@ -2,20 +2,16 @@
 
 ## Automated tests
 
-1. gridfall_mouse_input_tests checks right/left yaw opposition, up/down pitch opposition, diagonals, independent axes, consistent turning toward camera-right, yaw wrap, stationary input, pitch bounds, inversion options, and frame-rate-independent math.
-2. gridfall_mouse_relative_input_tests links the production MouseInput.cpp to mocked Raylib/SDL-accumulator functions. It verifies Gridfall reads GridfallConsumeRelativeMouseDelta() rather than GetMouseDelta(), preserves signed X/Y values, never swaps the axes, consumes each sample once, ignores input while uncaptured, and clears capture-transition state.
-3. The CMake patch must be idempotent and must fail during configure if any expected Raylib 6.0 source pattern changes.
+1. gridfall_mouse_input_tests checks right/left yaw opposition, up/down pitch opposition, all diagonals, independent axes, yaw wrap, stationary input, pitch bounds, configurable inversion, and frame-rate-independent math.
+2. gridfall_mouse_relative_input_tests links production MouseInput.cpp to a deterministic Raylib mock. It verifies the absolute pointer is sampled relative to the center, every non-zero sample recenters once, stationary samples stay zero, capture hides/shows the pointer correctly, and the adapter never enables SDL relative mode.
+3. Headless tests are not a substitute for physical WSLg testing.
 
 ## Physical WSLg test
 
-Reconfigure and rebuild, then run:
+Build and launch ./tools/run-mouse-diagnostic.sh. Press Space to capture. Physically move right, left, up, down, and all four diagonals. The displayed dx/dy should have the same signs as the motion, axes must stay independent, and the center-relative arrow must stop when the mouse stops. Release and recapture twice to check for transition jumps.
 
-    ./tools/run-mouse-diagnostic.sh
-
-Press Space to capture and move the physical mouse deliberately right, left, up, down, then along all four diagonals. Check that dx changes only yaw, dy changes only pitch, opposite directions reverse the corresponding camera change, and a stationary mouse produces zero. Then launch ./run-gridfall-wsl.sh, start a New Game and inspect the automatic [MOUSE_DIAG] lines in the terminal while turning, strafing and shooting.
-
-A stable sign reversal can be corrected through MouseLookSettings; intermittent sign changes or cross-axis movement should be diagnosed in the raw dx/dy trace, not masked by arbitrary clipping or extra smoothing. Do not change the UI or frame pacing during this input test.
+Then launch ./run-gridfall-wsl.sh, start a New Game, and turn while moving and shooting. Read the automatic [MOUSE_DIAG] trace. Peaks should reflect the actual center-relative physical displacement rather than desktop coordinates, and yaw/pitch should not reset during a sector change. The camera should not receive extra smoothing or time scaling.
 
 ## Release criterion
 
-All automated tests pass, the SDL backend reports the dedicated GridFall relative-input path, and all eight physical motion directions work in the live WSLg test. Headless tests alone do not prove physical-device correctness.
+All headless tests pass, the adapter follows the absolute pointer path without SDL relative mode, and the physical WSLg test has no coordinate-sized spikes, stationary drift, or camera resets.
