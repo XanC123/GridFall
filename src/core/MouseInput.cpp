@@ -166,7 +166,7 @@ void MouseInput::reportGameplaySample(MouseDelta delta, const MouseLookControlle
 }
 
 const char* MouseInput::backendName() const noexcept {
-    return "Gridfall-patched Raylib SDL relative mouse (WSLg warp-compatible mode)";
+    return "Gridfall-patched Raylib SDL relative mouse";
 }
 
 void MouseInput::shutdown() noexcept {
