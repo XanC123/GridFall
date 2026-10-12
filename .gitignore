@@ -1,0 +1,13 @@
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.o
+*.a
+*.so
+*.dll
+*.exe
+.env
+.env.*
+!.env.example

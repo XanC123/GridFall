@@ -1,0 +1,116 @@
+#include "gridfall/core/MouseInput.hpp"
+#include <raylib.h>
+
+#include <array>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+
+namespace {
+float gNextDx = 0.0f;
+float gNextDy = 0.0f;
+int gGetDeltaCalls = 0;
+int gDisableCalls = 0;
+int gEnableCalls = 0;
+int gShowCalls = 0;
+}
+
+extern "C" Vector2 GetMouseDelta(void) {
+    ++gGetDeltaCalls;
+    const Vector2 result{gNextDx, gNextDy};
+    gNextDx = 0.0f;
+    gNextDy = 0.0f;
+    return result;
+}
+extern "C" void DisableCursor(void) { ++gDisableCalls; }
+extern "C" void EnableCursor(void) { ++gEnableCalls; }
+extern "C" void ShowCursor(void) { ++gShowCalls; }
+
+#define CHECK(condition) do { \
+    if (!(condition)) { \
+        std::fprintf(stderr, "Relative-input CHECK failed at %s:%d: %s\n", \
+                     __FILE__, __LINE__, #condition); \
+        return EXIT_FAILURE; \
+    } \
+} while (false)
+
+int main() {
+    using namespace gridfall;
+    MouseInput input;
+    CHECK(input.initialize());
+    CHECK(input.backendName() != nullptr);
+
+    // Relative motion must be ignored while the cursor is not captured.
+    gNextDx = 17.0f;
+    gNextDy = -9.0f;
+    const int callsBeforeCapture = gGetDeltaCalls;
+    const MouseDelta ignored = input.consumeDelta();
+    CHECK(ignored.x == 0.0f && ignored.y == 0.0f);
+    CHECK(gGetDeltaCalls == callsBeforeCapture);
+
+    input.setCaptured(true);
+    CHECK(gDisableCalls == 1);
+    CHECK(input.backendName() != nullptr);
+
+    struct Motion {
+        const char* name;
+        float dx;
+        float dy;
+        int yawSign;
+        int pitchSign;
+    };
+    constexpr std::array<Motion, 8> motions{{
+        {"right", 24.0f, 0.0f, 1, 0},
+        {"left", -24.0f, 0.0f, -1, 0},
+        {"up", 0.0f, -24.0f, 0, 1},
+        {"down", 0.0f, 24.0f, 0, -1},
+        {"up-right", 18.0f, -18.0f, 1, 1},
+        {"up-left", -18.0f, -18.0f, -1, 1},
+        {"down-right", 18.0f, 18.0f, 1, -1},
+        {"down-left", -18.0f, 18.0f, -1, -1},
+    }};
+
+    for (const Motion& motion : motions) {
+        gNextDx = motion.dx;
+        gNextDy = motion.dy;
+        const MouseDelta delta = input.consumeDelta();
+        CHECK(std::fabs(delta.x - motion.dx) < 0.001f);
+        CHECK(std::fabs(delta.y - motion.dy) < 0.001f);
+
+        MouseLookController camera;
+        camera.reset(0.0f, 0.0f);
+        camera.update(delta.x, delta.y);
+        const int yawSign = camera.yaw() > 0.0f ? 1 : camera.yaw() < 0.0f ? -1 : 0;
+        const int pitchSign = camera.pitch() > 0.0f ? 1 : camera.pitch() < 0.0f ? -1 : 0;
+        if (yawSign != motion.yawSign || pitchSign != motion.pitchSign) {
+            std::fprintf(stderr, "Direction mapping failed for %s\n", motion.name);
+            return EXIT_FAILURE;
+        }
+    }
+
+    // A stationary mouse produces zero on the next frame; a delta is consumed once.
+    const MouseDelta stationary = input.consumeDelta();
+    CHECK(stationary.x == 0.0f && stationary.y == 0.0f);
+    CHECK(gGetDeltaCalls == callsBeforeCapture + 9);
+
+    input.setCaptured(false);
+    CHECK(gEnableCalls == 1);
+    CHECK(gShowCalls == 1);
+    gNextDx = -999.0f;
+    gNextDy = 777.0f;
+    const MouseDelta ignoredAfterRelease = input.consumeDelta();
+    CHECK(ignoredAfterRelease.x == 0.0f && ignoredAfterRelease.y == 0.0f);
+
+    input.setCaptured(true);
+    CHECK(gDisableCalls == 2);
+    gNextDx = 5.0f;
+    gNextDy = -3.0f;
+    const MouseDelta afterRecapture = input.consumeDelta();
+    CHECK(afterRecapture.x == 5.0f && afterRecapture.y == -3.0f);
+
+    input.shutdown();
+    CHECK(gEnableCalls == 2);
+    CHECK(gShowCalls == 2);
+    std::puts("SDL relative-input adapter passed: signed x/y, configurable axis directions, all 8 directions, stationary zero, one-time consumption, and cursor capture lifecycle.");
+    return EXIT_SUCCESS;
+}
