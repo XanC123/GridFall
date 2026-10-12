@@ -6,9 +6,8 @@
 
 namespace gridfall {
 
-// Thin adapter over Gridfall's isolated SDL relative-motion accumulator. The
-// patched Raylib SDL backend records signed xrel/yrel events separately from the
-// absolute cursor-position state used by menus and other Raylib input consumers.
+// WSLg-safe mouse-look adapter. Gameplay hides but does not lock the absolute
+// pointer, measures its offset from client-area center, and recenters after motion.
 class MouseInput {
 public:
     MouseInput() = default;
@@ -28,7 +27,10 @@ public:
 private:
     bool initialized_{};
     bool captured_{};
-    unsigned int captureWarmupSamplesRemaining_{};
+    bool captureCenterInitialized_{};
+    int captureCenterX_{};
+    int captureCenterY_{};
+    unsigned int captureWarmupSamplesRemaining_{}
     bool diagnosticsStarted_{};
     bool diagnosticsFinished_{};
     double diagnosticElapsedSeconds_{};
