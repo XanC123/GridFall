@@ -1,11 +1,5 @@
 # Mouse-input test results
 
-## Automated checks
+V14's absolute-pointer center-recenter path was rejected after live logs showed much faster spinning. It relied on a pointer warp that the compositor did not perform reliably, and mock tests incorrectly assumed the warp succeeded. V15 uses the SDL relative-event accumulator, checks capture activation, and returns no camera input if SDL refuses the relative lock. Unit tests cover all eight directions, one-time reads, capture transitions and fail-closed rejection.
 
-The adapter tests now exercise the absolute-pointer center-recenter path rather than SDL relative-mode events. They verify signed X/Y deltas, all eight direction mappings, one-time sample consumption, stationary zero, capture lifecycle, and that DisableCursor() (which enables SDL relative mode) is never called. Camera math tests remain independent of the platform backend.
-
-The headless Release suite and AddressSanitizer/UndefinedBehaviorSanitizer suite both pass all three CTest targets for this revision.
-
-## Physical-device status
-
-This build environment cannot operate the user's physical WSLg mouse or observe its compositor. The physical test still needs to verify the visual probe and the automatic 10-second gameplay trace after rebuilding. No claim of verified live-device delivery is made before that check.
+Headless Release and ASan/UBSan suites pass. This container lacks SDL2 development headers and a physical WSLg session, so the graphical target and live hardware path remain unverified. The on-device probe and ten-second trace are still required before claiming physical confirmation.
