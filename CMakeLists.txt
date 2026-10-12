@@ -56,7 +56,7 @@ if (GRIDFALL_BUILD_GAME)
     if (NOT TARGET raylib)
         message(FATAL_ERROR "Raylib was not built. Check SDL2 development files and network access.")
     endif()
-    message(STATUS "Gridfall mouse input: Raylib 6.0 SDL2 relative mode (SDL_MOUSEMOTION xrel/yrel)")
+    message(STATUS "Gridfall mouse input: isolated signed SDL xrel/yrel accumulator (Raylib 6.0 SDL2)")
 
     add_executable(gridfall
         src/main.cpp
