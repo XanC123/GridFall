@@ -28,6 +28,7 @@ public:
 private:
     bool initialized_{};
     bool captured_{};
+    unsigned int captureWarmupSamplesRemaining_{};
     bool diagnosticsStarted_{};
     bool diagnosticsFinished_{};
     double diagnosticElapsedSeconds_{};
